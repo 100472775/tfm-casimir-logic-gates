@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casimir Logic Gates — AND / OR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#f1f5f9;
+    --bg-1:#ffffff;
+    --panel:rgba(255, 255, 255, 0.94);
+    --panel-border:#cbd5e1;
+    --ink:#0f172a;
+    --ink-dim:#64748b;
+    --gold:#b45309;
+    --blue:#0284c7;
+    --red:#dc2626;
+    --magenta:#c026d3;
+    --green:#16a34a;
+    --slate:#64748b;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background: radial-gradient(1200px 800px at 50% 20%, var(--bg-1), var(--bg-0) 70%);
+    font-family:'Space Grotesk', system-ui, sans-serif;
+    color:var(--ink);
+  }
+  #canvas-wrap{position:fixed; inset:0;}
+  canvas{display:block; width:100%; height:100%; touch-action:none; cursor:grab;}
+  canvas:active{cursor:grabbing;}
+
+  .veil{
+    position:fixed; inset:0; pointer-events:none;
+    background:
+      linear-gradient(to bottom, rgba(241,245,249,0.85) 0%, rgba(241,245,249,0) 12%, rgba(241,245,249,0) 82%, rgba(241,245,249,0.9) 100%);
+  }
+
+  .gate-tag{
+    position:fixed; top:16px; z-index:6;
+    font-family:'JetBrains Mono', monospace; font-size:18px; letter-spacing:0.08em;
+    color:var(--ink-dim); text-transform:uppercase; text-align:center;
+    pointer-events:none; font-weight:700;
+  }
+  #tag-or{ left:calc(50% - 240px); transform:translateX(-50%); }
+  #tag-and{ left:calc(50% + 240px); transform:translateX(-50%); }
+  .gate-tag b{ color:var(--ink); font-weight:800; font-size:22px; }
+
+  #bottom-dock{
+    position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+    z-index:6; display:flex; gap:12px; align-items:center;
+    max-width:98vw;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:2px solid var(--panel-border);
+    border-radius:12px;
+    backdrop-filter: blur(10px);
+    box-shadow:0 10px 25px rgba(0,0,0,0.08);
+    padding:8px 16px;
+  }
+
+  #controls{
+    display:flex; align-items:center; gap:16px;
+  }
+  .ctrl-group{
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .ctrl-group h2{
+    margin:0; font-size:11px; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--ink-dim); font-weight:800;
+  }
+  .state-row{
+    display:flex; gap:8px; flex-wrap:nowrap;
+  }
+  
+  .state-btn{
+    font-family:'JetBrains Mono', monospace;
+    background:#ffffff; border:2px solid var(--panel-border); color:var(--ink-dim);
+    border-radius:8px; padding:6px 14px; font-size:14px; font-weight:800;
+    cursor:pointer; transition:all .15s ease; letter-spacing:0.03em;
+    white-space:nowrap; flex-shrink:0;
+  }
+  .state-btn:hover{ border-color:#64748b; color:var(--ink); }
+  .state-btn.active{
+    background:linear-gradient(135deg,#e0f2fe,#bae6fd);
+    border-color:#0284c7; color:#0369a1;
+    box-shadow:0 0 0 2px #0284c766, 0 0 10px #0284c722;
+  }
+
+  .outputs{ display:flex; gap:8px; align-items:center; }
+  .out-card{
+    border-radius:8px; padding:6px 12px;
+    background:#f8fafc; border:2px solid #cbd5e1; text-align:center; min-width:65px;
+  }
+  .out-card .lbl{
+    font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-dim); font-weight:800;
+  }
+  .out-card .val{
+    font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:800; line-height:1.1;
+  }
+  .val.zero{color:var(--red);}
+  .val.one{color:var(--green);}
+
+  #hint{
+    position:fixed; top:16px; right:20px; z-index:6;
+    font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:700; color:var(--ink-dim);
+    background:var(--panel); border:2px solid var(--panel-border); border-radius:8px;
+    padding:6px 12px;
+  }
+
+  @media (max-width: 900px){
+    #bottom-dock{ flex-direction:column; bottom:8px; gap:6px; }
+    #hint{ display:none; }
+    .gate-tag{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+<div class="veil"></div>
+
+<div class="gate-tag" id="tag-or"><b>OR</b> Gate</div>
+<div class="gate-tag" id="tag-and"><b>AND</b> Gate</div>
+
+<div id="hint">drag: rotate &nbsp;·&nbsp; scroll: zoom</div>
+
+<div id="bottom-dock">
+  <div class="panel" id="controls">
+    <div class="ctrl-group">
+      <h2>Input State</h2>
+      <div class="state-row">
+        <button class="state-btn" data-a="0" data-b="0">[0 0]</button>
+        <button class="state-btn" data-a="1" data-b="0">[1 0]</button>
+        <button class="state-btn" data-a="0" data-b="1">[0 1]</button>
+        <button class="state-btn" data-a="1" data-b="1">[1 1]</button>
+      </div>
+    </div>
+    <div class="outputs">
+      <div class="out-card">
+        <div class="lbl">OR</div>
+        <div class="val zero" id="or-out">0</div>
+      </div>
+      <div class="out-card">
+        <div class="lbl">AND</div>
+        <div class="val zero" id="and-out">0</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const wrap = document.getElementById('canvas-wrap');
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  wrap.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf1f5f9);
+  scene.fog = new THREE.Fog(0xf1f5f9, 22, 45);
+
+  const camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 200);
+
+  function resize(){
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w,h);
+    camera.aspect = w/h;
+    camera.updateMatrix();
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+
+  const target = new THREE.Vector3(0, 0.1, 0);
+  let radius = 18.5, theta = -0.62, phi = 1.18;
+  const minPhi = 0.35, maxPhi = 1.5, minR = 8, maxR = 34;
+
+  function updateCamera(){
+    camera.position.x = target.x + radius*Math.sin(phi)*Math.sin(theta);
+    camera.position.y = target.y + radius*Math.cos(phi);
+    camera.position.z = target.z + radius*Math.sin(phi)*Math.cos(theta);
+    camera.lookAt(target);
+  }
+  updateCamera();
+
+  let dragging=false, lastX=0, lastY=0;
+  const dom = renderer.domElement;
+  dom.addEventListener('pointerdown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; dom.setPointerCapture(e.pointerId); });
+  dom.addEventListener('pointerup', ()=> dragging=false);
+  dom.addEventListener('pointercancel', ()=> dragging=false);
+  dom.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const dx = e.clientX-lastX, dy = e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY;
+    theta -= dx*0.0055;
+    phi   = Math.min(maxPhi, Math.max(minPhi, phi - dy*0.0045));
+    updateCamera();
+  });
+  dom.addEventListener('wheel', e=>{
+    e.preventDefault();
+    radius = Math.min(maxR, Math.max(minR, radius * (1 + e.deltaY*0.0012)));
+    updateCamera();
+  }, { passive:false });
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+
+  const key = new THREE.DirectionalLight(0xffffff, 1.15);
+  key.position.set(8, 14, 10);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.left=-20; key.shadow.camera.right=20;
+  key.shadow.camera.top=20; key.shadow.camera.bottom=-20;
+  key.shadow.camera.near=1; key.shadow.camera.far=50;
+  key.shadow.bias=-0.0015;
+  scene.add(key);
+
+  const rim = new THREE.DirectionalLight(0x0284c7, 0.3);
+  rim.position.set(-10,6,-8);
+  scene.add(rim);
+
+  const floorGeo = new THREE.PlaneGeometry(80,80);
+  const floorMat = new THREE.MeshStandardMaterial({ color:0xe2e8f0, roughness:0.95, metalness:0.05 });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI/2;
+  floor.position.y = -4.5;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  const grid = new THREE.GridHelper(80, 80, 0xcbd5e1, 0xe2e8f0);
+  grid.position.y = -4.49;
+  grid.material.transparent = true;
+  grid.material.opacity = 0.6;
+  scene.add(grid);
+
+  const goldMat = new THREE.MeshStandardMaterial({ color:0xd97706, metalness:0.8, roughness:0.2, emissive:0x451a03, emissiveIntensity:0.2 });
+  const stopperMat = new THREE.MeshStandardMaterial({ color:0x64748b, metalness:0.3, roughness:0.6 });
+
+  function makeTunableMat(){
+    return new THREE.MeshPhysicalMaterial({
+      color:0x0284c7, metalness:0.15, roughness:0.28,
+      transmission:0.08, thickness:0.6, clearcoat:0.5, clearcoatRoughness:0.3,
+      emissive:0x0369a1, emissiveIntensity:0.3
+    });
+  }
+
+  function roundRect(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  function buildCanvas(text, opts){
+    const lines = String(text).split('\n');
+    const o = Object.assign({
+      fontSize: 48,
+      weight: '700',
+      color: '#0f172a',
+      bg: 'rgba(255, 255, 255, 0.95)',
+      borderColor: '#cbd5e1',
+      borderWidth: 5,
+      font: "'JetBrains Mono', monospace",
+      padX: 24,
+      padY: 14,
+      radius: 10,
+      lineGap: 6
+    }, opts);
+
+    const dpr = 2;
+    const tempC = document.createElement('canvas');
+    const tempCtx = tempC.getContext('2d');
+    tempCtx.font = `${o.weight} ${o.fontSize}px ${o.font}`;
+
+    let maxW = 0;
+    lines.forEach(line => {
+      const m = tempCtx.measureText(line);
+      if(m.width > maxW) maxW = m.width;
+    });
+
+    const lineH = o.fontSize + o.lineGap;
+    const totalTextH = lineH * lines.length - o.lineGap;
+    const w = Math.ceil(maxW) + o.padX * 2;
+    const h = totalTextH + o.padY * 2;
+
+    const c = document.createElement('canvas');
+    c.width = w * dpr;
+    c.height = h * dpr;
+    const ctx = c.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    ctx.font = `${o.weight} ${o.fontSize}px ${o.font}`;
+
+    if(o.bg){
+      ctx.fillStyle = o.bg;
+      roundRect(ctx, o.borderWidth/2, o.borderWidth/2, w - o.borderWidth, h - o.borderWidth, o.radius);
+      ctx.fill();
+      if(o.borderColor && o.borderWidth > 0){
+        ctx.lineWidth = o.borderWidth;
+        ctx.strokeStyle = o.borderColor;
+        ctx.stroke();
+      }
+    }
+
+    ctx.fillStyle = o.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const startY = (h - totalTextH) / 2 + o.fontSize / 2;
+    lines.forEach((line, i) => {
+      ctx.fillText(line, w / 2, startY + i * lineH);
+    });
+
+    return c;
+  }
+
+  function makeSprite(text, opts, worldHeight){
+    const canvas = buildCanvas(text, opts);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.encoding = THREE.sRGBEncoding;
+    const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, depthWrite:false, depthTest:true });
+    const spr = new THREE.Sprite(mat);
+    const aspect = canvas.width/canvas.height;
+    const hh = worldHeight || 0.48;
+    spr.scale.set(hh*aspect, hh, 1);
+    spr.renderOrder = 10;
+    return spr;
+  }
+
+  function updateSprite(spr, text, opts, worldHeight){
+    const canvas = buildCanvas(text, opts);
+    spr.material.map.dispose();
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    tex.encoding = THREE.sRGBEncoding;
+    spr.material.map = tex;
+    spr.material.needsUpdate = true;
+    const aspect = canvas.width/canvas.height;
+    const hh = worldHeight || 0.48;
+    spr.scale.set(hh*aspect, hh, 1);
+  }
+
+  const beamCoreMats = [];
+
+  function add3DArrowHead(group, position, dir, colorHex, glowHex, radius){
+    const coneRadius = (radius || 0.045) * 3.2;
+    const coneHeight = (radius || 0.045) * 6.5;
+
+    const coneGeo = new THREE.ConeGeometry(coneRadius, coneHeight, 12);
+    coneGeo.translate(0, -coneHeight/2, 0);
+
+    const coreMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.98 });
+    const glowGeo = new THREE.ConeGeometry(coneRadius * 1.6, coneHeight * 1.1, 12);
+    glowGeo.translate(0, -coneHeight*1.1/2, 0);
+    const glowMat = new THREE.MeshBasicMaterial({ color: glowHex, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+
+    const core = new THREE.Mesh(coneGeo, coreMat);
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+
+    [core, glow].forEach(m => {
+      m.position.copy(position);
+      m.quaternion.copy(quat);
+      m.renderOrder = 7;
+    });
+
+    group.add(core); group.add(glow);
+    beamCoreMats.push(coreMat);
+  }
+
+  function addBeamSegment(group, p1, p2, radius, showArrow = true){
+    radius = radius || 0.045;
+    const dir = new THREE.Vector3().subVectors(p2,p1);
+    const len = dir.length();
+    if(len < 0.001) return;
+    dir.normalize();
+
+    const coreGeo = new THREE.CylinderGeometry(radius, radius, len, 10, 1, true);
+    const coreMat = new THREE.MeshBasicMaterial({ color:0xdc2626, transparent:true, opacity:0.95 });
+
+    const glowGeo = new THREE.CylinderGeometry(radius*2.8, radius*2.8, len, 10, 1, true);
+    const glowMat = new THREE.MeshBasicMaterial({ color:0xef4444, transparent:true, opacity:0.25, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide });
+
+    const mid = new THREE.Vector3().addVectors(p1,p2).multiplyScalar(0.5);
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    [core, glow].forEach(m=>{ m.position.copy(mid); m.quaternion.copy(quat); m.renderOrder=5; });
+
+    group.add(core); group.add(glow);
+    beamCoreMats.push(coreMat);
+
+    if(showArrow && len > 0.35){
+      const arrowPos = p2.clone().sub(dir.clone().multiplyScalar(0.08));
+      add3DArrowHead(group, arrowPos, dir, 0xdc2626, 0xef4444, radius);
+    }
+  }
+
+  function addInputBeam(group, p1, p2, radius, showArrow = false){
+    radius = radius || 0.04;
+    const dir = new THREE.Vector3().subVectors(p2,p1);
+    const len = dir.length();
+    if(len < 0.001) return;
+    dir.normalize();
+
+    const coreGeo = new THREE.CylinderGeometry(radius, radius, len, 10, 1, true);
+    const coreMat = new THREE.MeshBasicMaterial({ color:0xc026d3, transparent:true, opacity:0.95 });
+
+    const glowGeo = new THREE.CylinderGeometry(radius*2.8, radius*2.8, len, 10, 1, true);
+    const glowMat = new THREE.MeshBasicMaterial({ color:0xd946ef, transparent:true, opacity:0.3, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide });
+
+    const mid = new THREE.Vector3().addVectors(p1,p2).multiplyScalar(0.5);
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    [core, glow].forEach(m=>{ m.position.copy(mid); m.quaternion.copy(quat); m.renderOrder=5; });
+
+    group.add(core); group.add(glow);
+    beamCoreMats.push(coreMat);
+
+    if(showArrow && len > 0.25){
+      const arrowPos = p2.clone().sub(dir.clone().multiplyScalar(0.08));
+      add3DArrowHead(group, arrowPos, dir, 0xc026d3, 0xd946ef, radius);
+    }
+  }
+
+  function addSpark(group, pos){
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createRadialGradient(64,64,0,64,64,64);
+    g.addColorStop(0, 'rgba(220,38,38,1)');
+    g.addColorStop(0.35, 'rgba(239,68,68,0.8)');
+    g.addColorStop(1, 'rgba(239,68,68,0)');
+    ctx.fillStyle = g; ctx.fillRect(0,0,128,128);
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false });
+    const spr = new THREE.Sprite(mat);
+    spr.position.copy(pos); spr.scale.set(0.65,0.65,1); spr.renderOrder = 8;
+    group.add(spr);
+  }
+
+  function addSparkMagenta(group, pos){
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createRadialGradient(64,64,0,64,64,64);
+    g.addColorStop(0, 'rgba(192,38,211,1)');
+    g.addColorStop(0.35, 'rgba(217,70,239,0.8)');
+    g.addColorStop(1, 'rgba(217,70,239,0)');
+    ctx.fillStyle = g; ctx.fillRect(0,0,128,128);
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map:tex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false });
+    const spr = new THREE.Sprite(mat);
+    spr.position.copy(pos); spr.scale.set(0.7,0.7,1); spr.renderOrder = 8;
+    group.add(spr);
+  }
+
+  function addNode(group, pos, lit, radius){
+    radius = radius || 0.18;
+    const geo = new THREE.SphereGeometry(radius, 20, 20);
+    const mat = new THREE.MeshBasicMaterial({ color: lit ? 0x16a34a : 0x94a3b8, transparent:true, opacity: lit?0.95:0.75 });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.copy(pos);
+    group.add(m);
+    if(lit){
+      const glowGeo = new THREE.SphereGeometry(radius*2.6,16,16);
+      const glowMat = new THREE.MeshBasicMaterial({ color:0x22c55e, transparent:true, opacity:0.3, blending:THREE.AdditiveBlending, depthWrite:false });
+      const gm = new THREE.Mesh(glowGeo, glowMat);
+      gm.position.copy(pos);
+      group.add(gm);
+    }
+  }
+
+  function makeWall(mat, w,h,d){
+    const geo = new THREE.BoxGeometry(w,h,d);
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = true; m.receiveShadow = true;
+    return m;
+  }
+  function makePlate(mat, w,h,d){
+    const geo = new THREE.BoxGeometry(w,h,d);
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = true; m.receiveShadow = true;
+    return m;
+  }
+
+  function offset(obj,x,y,z){ obj.position.set(x,y,z); return obj; }
+
+  const AND = {};
+  (function buildAND(){
+    const g = new THREE.Group();
+    g.position.set(4.3, 0, 0);
+    scene.add(g);
+    AND.group = g;
+
+    const WALL_H = 5.2, WALL_D = 1.7;
+    const GOLD_X = 2.35, STOP_X = -2.35;
+
+    AND.closedX = 1.31;
+    AND.openX = -1.40;
+    AND.laneX = 1.45;
+
+    const gold = makeWall(goldMat, 0.28, WALL_H, WALL_D);
+    gold.position.set(GOLD_X, 0, 0);
+    g.add(gold);
+
+    const stop = makeWall(stopperMat, 0.11, WALL_H, WALL_D);
+    stop.position.set(STOP_X, 0, 0);
+    g.add(stop);
+
+    const topMat = makeTunableMat();
+    const botMat = makeTunableMat();
+    const topPlate = makePlate(topMat, 1.8, 1.3, 1.5);
+    const botPlate = makePlate(botMat, 1.8, 1.3, 1.5);
+    topPlate.position.set(AND.closedX, 1.1, 0);
+    botPlate.position.set(AND.closedX, -1.1, 0);
+    g.add(topPlate); g.add(botPlate);
+
+    AND.topPlate = topPlate; AND.botPlate = botPlate;
+    AND.topMat = topMat; AND.botMat = botMat;
+
+    AND.topTopY = 1.1 + 0.65;
+    AND.topBotY = 1.1 - 0.65;
+    AND.botTopY = -1.1 + 0.65;
+    AND.botBotY = -1.1 - 0.65;
+    AND.entryY = 3.3;
+    AND.exitY = -3.3;
+
+    AND.beamGroup = new THREE.Group();
+    g.add(AND.beamGroup);
+
+    g.add(offset(makeSprite('GOLD (Au)', {fontSize:48, color:'#b45309', borderColor:'#b45309'}, 0.48), GOLD_X + 0.1, 3.3, 0.5));
+    g.add(offset(makeSprite('PTFE STOPPER', {fontSize:48, color:'#475569', borderColor:'#64748b'}, 0.44), STOP_X - 0.2, 3.3, 0.5));
+    
+    AND.lblTunableA = makeSprite('TUNABLE\nPLATE', {fontSize:48, color:'#0284c7', borderColor:'#0284c7'}, 0.86);
+    AND.lblTunableB = makeSprite('TUNABLE\nPLATE', {fontSize:48, color:'#0284c7', borderColor:'#0284c7'}, 0.86);
+    g.add(AND.lblTunableA);
+    g.add(AND.lblTunableB);
+
+    g.add(offset(makeSprite('LASER DATA', {fontSize:48, color:'#dc2626', borderColor:'#dc2626'}, 0.48), AND.laneX, 4.35, 0.5));
+
+    AND.inputALabel = makeSprite('INPUT A = 0', {fontSize:48, color:'#c026d3', borderColor:'#c026d3'}, 0.48);
+    g.add(AND.inputALabel);
+
+    AND.inputBLabel = makeSprite('INPUT B = 0', {fontSize:48, color:'#c026d3', borderColor:'#c026d3'}, 0.48);
+    g.add(AND.inputBLabel);
+
+    AND.outputLabel = makeSprite('OUTPUT: 0', {fontSize:48, color:'#dc2626', borderColor:'#dc2626'}, 0.48);
+    AND.outputLabel.position.set(AND.laneX, -4.25, 0.8);
+    g.add(AND.outputLabel);
+  })();
+
+  function updateAND(A,B){
+    const g = AND.beamGroup;
+    while(g.children.length){ disposeObj(g.children.pop()); }
+
+    const topX = AND.topPlate.position.x;
+    const botX = AND.botPlate.position.x;
+
+    AND.lblTunableA.position.set(topX, 1.1, 0.85);
+    AND.lblTunableB.position.set(botX, -1.1, 0.85);
+
+    const originAX = topX + (A === 0 ? -1.3 : 1.3);
+    const originAY = AND.topTopY + 1.2;
+    const p_inA_start = new THREE.Vector3(originAX, originAY, 0);
+    const p_inA_end   = new THREE.Vector3(topX, AND.topTopY, 0);
+    addInputBeam(g, p_inA_start, p_inA_end, 0.04, true);
+    addSparkMagenta(g, p_inA_end);
+
+    AND.inputALabel.position.set(originAX, originAY + 0.55, 0.8);
+
+    const originBX = botX + (B === 0 ? -1.3 : 1.3);
+    const originBY = AND.botBotY - 1.2;
+    const p_inB_start = new THREE.Vector3(originBX, originBY, 0);
+    const p_inB_end   = new THREE.Vector3(botX, AND.botBotY, 0);
+    addInputBeam(g, p_inB_start, p_inB_end, 0.04, true);
+    addSparkMagenta(g, p_inB_end);
+
+    AND.inputBLabel.position.set(originBX, originBY - 0.55, 0.8);
+
+    const lx = AND.laneX;
+    const p_stem   = new THREE.Vector3(lx, 3.8, 0);
+    const p_entry  = new THREE.Vector3(lx, AND.entryY, 0);
+    const p_topTop = new THREE.Vector3(lx, AND.topTopY, 0);
+    const p_topBot = new THREE.Vector3(lx, AND.topBotY, 0);
+    const p_botTop = new THREE.Vector3(lx, AND.botTopY, 0);
+    const p_botBot = new THREE.Vector3(lx, AND.botBotY, 0);
+    const p_exit   = new THREE.Vector3(lx, AND.exitY, 0);
+
+    addBeamSegment(g, p_stem, p_entry);
+    addBeamSegment(g, p_entry, p_topTop);
+
+    if(A === 1){
+      addBeamSegment(g, p_topTop, p_topBot);
+      addBeamSegment(g, p_topBot, p_botTop);
+      if(B === 1){
+        addBeamSegment(g, p_botTop, p_botBot);
+        addBeamSegment(g, p_botBot, p_exit);
+        addNode(g, p_exit, true, 0.18);
+      } else {
+        addSpark(g, p_botTop);
+        addNode(g, p_exit, false, 0.16);
+      }
+    } else {
+      addSpark(g, p_topTop);
+      addNode(g, p_exit, false, 0.16);
+    }
+
+    tintTunable(AND.topMat, A);
+    tintTunable(AND.botMat, B);
+
+    updateSprite(AND.inputALabel, `INPUT A = ${A}`, {fontSize:48, color: A? '#c026d3':'#a21caf', borderColor: A? '#c026d3':'#a21caf'}, 0.48);
+    updateSprite(AND.inputBLabel, `INPUT B = ${B}`, {fontSize:48, color: B? '#c026d3':'#a21caf', borderColor: B? '#c026d3':'#a21caf'}, 0.48);
+    const out = (A===1 && B===1) ? 1 : 0;
+    updateSprite(AND.outputLabel, `OUTPUT: ${out}`, {fontSize:48, color: out? '#16a34a':'#dc2626', borderColor: out? '#16a34a':'#dc2626'}, 0.48);
+    return out;
+  }
+
+  const OR = {};
+  (function buildOR(){
+    const g = new THREE.Group();
+    g.position.set(-4.3, 0, 0);
+    scene.add(g);
+    OR.group = g;
+
+    const WALL_H = 5.2, WALL_D = 1.7;
+    const LGOLD_X = -3.2, RGOLD_X = 3.2, STOP_X = 0;
+
+    OR.closedL = -2.26;
+    OR.openL   = -0.86;
+    OR.closedR = 2.26;
+    OR.openR   = 0.86;
+
+    OR.laneL = -2.35;
+    OR.laneR = 2.35;
+
+    const lgold = makeWall(goldMat, 0.28, WALL_H, WALL_D); lgold.position.set(LGOLD_X,0,0); g.add(lgold);
+    const rgold = makeWall(goldMat, 0.28, WALL_H, WALL_D); rgold.position.set(RGOLD_X,0,0); g.add(rgold);
+    const stop  = makeWall(stopperMat, 0.11, WALL_H, WALL_D); stop.position.set(STOP_X,0,0); g.add(stop);
+
+    const lMat = makeTunableMat(), rMat = makeTunableMat();
+    const lPlate = makePlate(lMat, 1.6, 1.3, 1.5);
+    const rPlate = makePlate(rMat, 1.6, 1.3, 1.5);
+    lPlate.position.set(OR.closedL, 0, 0);
+    rPlate.position.set(OR.closedR, 0, 0);
+    g.add(lPlate); g.add(rPlate);
+
+    OR.lPlate = lPlate; OR.rPlate = rPlate;
+    OR.lMat = lMat; OR.rMat = rMat;
+
+    OR.plateTopY = 0.65; OR.plateBotY = -0.65;
+    OR.entryY = -3.1; OR.splitY = -1.95;
+    OR.legY = 1.95; OR.detectY = 3.35;
+
+    OR.beamGroup = new THREE.Group();
+    g.add(OR.beamGroup);
+
+    g.add(offset(makeSprite('GOLD (Au)', {fontSize:48, color:'#b45309', borderColor:'#b45309'}, 0.48), LGOLD_X, 3.3, 0.5));
+    g.add(offset(makeSprite('GOLD (Au)', {fontSize:48, color:'#b45309', borderColor:'#b45309'}, 0.48), RGOLD_X, 3.3, 0.5));
+    
+    // PTFE STOPPER elevado a Y = 2.92 (por encima del stopper y justo por debajo de la esfera verde Y = 3.35)
+    g.add(offset(makeSprite('PTFE STOPPER', {fontSize:48, color:'#475569', borderColor:'#64748b'}, 0.40), STOP_X, 2.92, 0.6));
+
+    OR.lblTunableA = makeSprite('TUNABLE\nPLATE', {fontSize:48, color:'#0284c7', borderColor:'#0284c7'}, 0.86);
+    OR.lblTunableB = makeSprite('TUNABLE\nPLATE', {fontSize:48, color:'#0284c7', borderColor:'#0284c7'}, 0.86);
+    g.add(OR.lblTunableA);
+    g.add(OR.lblTunableB);
+
+    g.add(offset(makeSprite('LASER DATA', {fontSize:48, color:'#dc2626', borderColor:'#dc2626'}, 0.48), 0, -3.85, 0.6));
+
+    OR.inputALabel = makeSprite('INPUT A = 0', {fontSize:48, color:'#c026d3', borderColor:'#c026d3'}, 0.48);
+    OR.inputALabel.position.set(-2.4, 4.25, 0.8);
+    g.add(OR.inputALabel);
+
+    OR.inputBLabel = makeSprite('INPUT B = 0', {fontSize:48, color:'#c026d3', borderColor:'#c026d3'}, 0.48);
+    OR.inputBLabel.position.set(2.4, 4.25, 0.8);
+    g.add(OR.inputBLabel);
+
+    OR.outputLabel = makeSprite('OUTPUT: 0', {fontSize:48, color:'#dc2626', borderColor:'#dc2626'}, 0.48);
+    OR.outputLabel.position.set(0, 4.95, 0.8);
+    g.add(OR.outputLabel);
+  })();
+
+  function updateOR(A,B){
+    const g = OR.beamGroup;
+    while(g.children.length){ disposeObj(g.children.pop()); }
+
+    const lx = OR.lPlate.position.x;
+    const rx = OR.rPlate.position.x;
+
+    OR.lblTunableA.position.set(lx, 0, 0.85);
+    OR.lblTunableB.position.set(rx, 0, 0.85);
+
+    const p_inA_start = new THREE.Vector3(-1.8, 3.4, 0);
+    const p_inA_end   = new THREE.Vector3(lx, OR.plateTopY, 0);
+    addInputBeam(g, p_inA_start, p_inA_end, 0.04, true);
+    addSparkMagenta(g, p_inA_end);
+
+    const p_inB_start = new THREE.Vector3(1.8, 3.4, 0);
+    const p_inB_end   = new THREE.Vector3(rx, OR.plateTopY, 0);
+    addInputBeam(g, p_inB_start, p_inB_end, 0.04, true);
+    addSparkMagenta(g, p_inB_end);
+
+    const p_stem = new THREE.Vector3(0, OR.entryY - 0.6, 0);
+    const src    = new THREE.Vector3(0, OR.entryY, 0);
+    const splitL = new THREE.Vector3(OR.laneL, OR.splitY, 0);
+    const splitR = new THREE.Vector3(OR.laneR, OR.splitY, 0);
+    const lBot   = new THREE.Vector3(OR.laneL, OR.plateBotY, 0);
+    const lTop   = new THREE.Vector3(OR.laneL, OR.plateTopY, 0);
+    const rBot   = new THREE.Vector3(OR.laneR, OR.plateBotY, 0);
+    const rTop   = new THREE.Vector3(OR.laneR, OR.plateTopY, 0);
+    const lLeg   = new THREE.Vector3(OR.laneL, OR.legY, 0);
+    const rLeg   = new THREE.Vector3(OR.laneR, OR.legY, 0);
+    const detect = new THREE.Vector3(0, OR.detectY, 0);
+
+    addBeamSegment(g, p_stem, src, 0.045);
+    addBeamSegment(g, src, splitL, 0.04);
+    addBeamSegment(g, src, splitR, 0.04);
+    addBeamSegment(g, splitL, lBot);
+    addBeamSegment(g, splitR, rBot);
+
+    let anyOpen = false;
+    if(A === 1){
+      addBeamSegment(g, lBot, lTop);
+      addBeamSegment(g, lTop, lLeg);
+      addBeamSegment(g, lLeg, detect, 0.04);
+      anyOpen = true;
+    } else {
+      addSpark(g, lBot);
+    }
+
+    if(B === 1){
+      addBeamSegment(g, rBot, rTop);
+      addBeamSegment(g, rTop, rLeg);
+      addBeamSegment(g, rLeg, detect, 0.04);
+      anyOpen = true;
+    } else {
+      addSpark(g, rBot);
+    }
+    addNode(g, detect, anyOpen, 0.18);
+
+    tintTunable(OR.lMat, A);
+    tintTunable(OR.rMat, B);
+
+    updateSprite(OR.inputALabel, `INPUT A = ${A}`, {fontSize:48, color: A? '#c026d3':'#a21caf', borderColor: A? '#c026d3':'#a21caf'}, 0.48);
+    updateSprite(OR.inputBLabel, `INPUT B = ${B}`, {fontSize:48, color: B? '#c026d3':'#a21caf', borderColor: B? '#c026d3':'#a21caf'}, 0.48);
+    const out = anyOpen ? 1 : 0;
+    updateSprite(OR.outputLabel, `OUTPUT: ${out}`, {fontSize:48, color: out? '#16a34a':'#dc2626', borderColor: out? '#16a34a':'#dc2626'}, 0.48);
+    return out;
+  }
+
+  function tintTunable(mat, state){
+    if(state === 1){
+      mat.emissive.setHex(0x15803d);
+      mat.emissiveIntensity = 0.6;
+    } else {
+      mat.emissive.setHex(0x0369a1);
+      mat.emissiveIntensity = 0.3;
+    }
+  }
+
+  function disposeObj(o){
+    if(o.geometry) o.geometry.dispose();
+    if(o.material){
+      if(o.material.map) o.material.map.dispose();
+      o.material.dispose();
+    }
+  }
+
+  let curA = 0, curB = 0;
+  let tweenStart = 0, tweenDur = 480, tweening = false;
+  let and_from=0, and_to=0, bot_from=0, bot_to=0;
+  let orl_from=0, orl_to=0, orr_from=0, orr_to=0;
+
+  function easeInOutQuad(t){ return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+
+  function applyState(A,B, animate){
+    curA=A; curB=B;
+
+    const andTopTarget = A===1 ? AND.openX : AND.closedX;
+    const andBotTarget = B===1 ? AND.openX : AND.closedX;
+    const orLTarget = A===1 ? OR.openL : OR.closedL;
+    const orRTarget = B===1 ? OR.openR : OR.closedR;
+
+    if(!animate){
+      AND.topPlate.position.x = andTopTarget;
+      AND.botPlate.position.x = andBotTarget;
+      OR.lPlate.position.x = orLTarget;
+      OR.rPlate.position.x = orRTarget;
+      updateAND(A,B); updateOR(A,B);
+      refreshUI(A,B);
+      return;
+    }
+
+    and_from = AND.topPlate.position.x; and_to = andTopTarget;
+    bot_from = AND.botPlate.position.x; bot_to = andBotTarget;
+    orl_from = OR.lPlate.position.x; orl_to = orLTarget;
+    orr_from = OR.rPlate.position.x; orr_to = orRTarget;
+
+    tweenStart = performance.now();
+    tweening = true;
+    refreshUI(A,B);
+  }
+
+  function refreshUI(A,B){
+    document.querySelectorAll('.state-btn').forEach(b=>{
+      const ba = parseInt(b.dataset.a,10), bb = parseInt(b.dataset.b,10);
+      b.classList.toggle('active', ba===A && bb===B);
+    });
+  }
+
+  function finalizeTween(){
+    tweening = false;
+    AND.topPlate.position.x = and_to;
+    AND.botPlate.position.x = bot_to;
+    OR.lPlate.position.x = orl_to;
+    OR.rPlate.position.x = orr_to;
+    const andOut = updateAND(curA, curB);
+    const orOut = updateOR(curA, curB);
+
+    const andEl = document.getElementById('and-out');
+    const orEl = document.getElementById('or-out');
+    andEl.textContent = andOut; andEl.className = 'val ' + (andOut? 'one':'zero');
+    orEl.textContent = orOut; orEl.className = 'val ' + (orOut? 'one':'zero');
+  }
+
+  document.querySelectorAll('.state-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const A = parseInt(btn.dataset.a,10), B = parseInt(btn.dataset.b,10);
+      if(A===curA && B===curB) return;
+      applyState(A,B,true);
+    });
+  });
+
+  function animate(now){
+    requestAnimationFrame(animate);
+
+    if(tweening){
+      const t = Math.min(1, (now - tweenStart)/tweenDur);
+      const e = easeInOutQuad(t);
+      AND.topPlate.position.x = and_from + (and_to-and_from)*e;
+      AND.botPlate.position.x = bot_from + (bot_to-bot_from)*e;
+      OR.lPlate.position.x = orl_from + (orl_to-orl_from)*e;
+      OR.rPlate.position.x = orr_from + (orr_to-orr_from)*e;
+
+      updateAND(curA, curB);
+      updateOR(curA, curB);
+
+      if(t >= 1) finalizeTween();
+    }
+
+    const t = now*0.001;
+    beamCoreMats.forEach(m=>{ m.opacity = 0.78 + Math.sin(t*5.2)*0.18; });
+
+    renderer.render(scene, camera);
+  }
+
+  resize();
+  applyState(0,0,false);
+  finalizeInit();
+  function finalizeInit(){
+    const andEl = document.getElementById('and-out');
+    const orEl = document.getElementById('or-out');
+    andEl.textContent = '0'; andEl.className='val zero';
+    orEl.textContent = '0'; orEl.className='val zero';
+  }
+  requestAnimationFrame(animate);
+
+})();
+</script>
+</body>
+</html>

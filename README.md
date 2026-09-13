@@ -16,10 +16,10 @@ Este repositorio aloja el visor interactivo 3D en tiempo real desarrollado para 
 
 ### Opción 1: Visualización web (Recomendado)
 Accede directamente desde tu navegador a través de GitHub Pages:  
-**[Ver Simulación Interactiva 3D](https://github.com/100472775/tfm-casimir-logic-gates/SimulacionPuertas.html)**
+**[Ver Simulación Interactiva 3D](https://100472775.github.io/tfm-casimir-logic-gates/SimulacionPuertas.html)**
 
 ### Opción 2: Ejecución local
 1. Descarga o clona este repositorio:
    ```bash
-   git clone [https://github.com/100472775/tfm-casimir-logic-gates.git]
+   git clone [https://github.com/100472775/tfm-casimir-logic-gates.git](https://github.com/100472775/tfm-casimir-logic-gates.git)
 2. Abre el archivo SimulacionPuertas.html haciendo doble clic sobre él (funciona en Chrome, Firefox, Edge o Safari sin necesidad de instalar dependencias ni servidores).

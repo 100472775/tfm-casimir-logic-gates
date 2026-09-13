@@ -21,5 +21,5 @@ Accede directamente desde tu navegador a través de GitHub Pages:
 ### Opción 2: Ejecución local
 1. Descarga o clona este repositorio:
    ```bash
-   git clone [https://github.com/tu-usuario/tfm-casimir-logic-gates.git](https://github.com/tu-usuario/tfm-casimir-logic-gates.git)
+   git clone [https://github.com/100472775/tfm-casimir-logic-gates.git](https://github.com/tu-usuario/tfm-casimir-logic-gates.git)
 2. Abre el archivo SimulacionPuertas.html haciendo doble clic sobre él (funciona en Chrome, Firefox, Edge o Safari sin necesidad de instalar dependencias ni servidores).
